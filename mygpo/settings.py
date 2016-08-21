@@ -90,6 +90,7 @@ TEMPLATES = [{
     'BACKEND': 'django.template.backends.django.DjangoTemplates',
     'DIRS': [],
     'OPTIONS': {
+        'debug': DEBUG,
         'context_processors': [
                 'django.contrib.auth.context_processors.auth',
                 'django.template.context_processors.debug',
@@ -390,10 +391,12 @@ INTERNAL_IPS = os.getenv('INTERNAL_IPS', '').split()
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND',
                           'django.core.mail.backends.smtp.EmailBackend')
 
-
 # OAuth
 
 MYGPO_AUTH_CLIENT_ID = os.getenv('MYGPO_AUTH_CLIENT_ID', None)
 MYGPO_AUTH_CLIENT_SECRET = os.getenv('MYGPO_AUTH_CLIENT_SECRET', None)
 
 MYGPO_AUTH_URL = os.getenv('MYGPO_AUTH_URL', None)
+
+
+PODCAST_AD_ID = os.getenv('PODCAST_AD_ID')

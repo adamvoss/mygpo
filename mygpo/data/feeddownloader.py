@@ -85,7 +85,19 @@ def update_podcast(podcast_url):
 
     except requests.exceptions.RequestException as re:
         logging.exception('Error while fetching response from feedservice')
-        return
+
+        # if we fail to parse the URL, we don't even create the
+        # podcast object
+        try:
+            p = Podcast.objects.get(urls__url=podcast_url)
+            # if it exists already, we mark it as outdated
+            _mark_outdated(p, 'error while fetching feed: %s' % str(re))
+            p.last_update = datetime.utcnow()
+            p.save()
+            return p
+
+        except Podcast.DoesNotExist:
+            raise NoPodcastCreated(re)
 
     except NoEpisodesException as nee:
         logging.warn('No episode found while parsing podcast')
@@ -104,6 +116,9 @@ def update_podcast(podcast_url):
     assert parsed, 'fetch_feed must return something'
     p = Podcast.objects.get_or_create_for_url(podcast_url)
     episodes = _update_episodes(p, parsed.get('episodes', []))
+    p.refresh_from_db()
+    p.episode_count = Episode.objects.filter(podcast=p).count()
+    p.save()
     max_episode_order = _order_episodes(p)
     _update_podcast(p, parsed, episodes, max_episode_order)
     return p
@@ -125,10 +140,19 @@ def _fetch_feed(podcast_url):
     }
     url = urljoin(settings.FEEDSERVICE_URL, 'parse')
     r = requests.get(url, params=params, headers=headers, timeout=10)
+
+    if r.status_code != 200:
+        logger.error('Feed-service status code for "%s" was %s', podcast_url,
+                     r.status_code)
+        return None
+
     try:
         return r.json()[0]
     except ValueError:
-        logger.exception('Error while parsing response: {}', r.text)
+        logger.exception(
+            'Feed-service error while parsing response for url "%s": %s',
+            podcast_url, r.text,
+        )
         raise
 
 
@@ -331,7 +355,7 @@ def _save_podcast_logo(cover_art):
 
         # get hash of existing file
         if os.path.exists(filename):
-            with open(filename) as f:
+            with open(filename, 'rb') as f:
                 old_hash = file_hash(f).digest()
         else:
             old_hash = ''
@@ -343,7 +367,7 @@ def _save_podcast_logo(cover_art):
             fp.write(urllib.request.urlopen(cover_art).read())
 
         # get hash of new file
-        with open(filename) as f:
+        with open(filename, 'rb') as f:
             new_hash = file_hash(f).digest()
 
         # remove thumbnails if cover changed

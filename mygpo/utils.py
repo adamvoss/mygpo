@@ -436,10 +436,13 @@ def additional_value(it, gen_val, val_changed=lambda _: True):
 def file_hash(f, h=hashlib.md5, block_size=2**20):
     """ returns the hash of the contents of a file """
     f_hash = h()
-    for chunk in iter(lambda: f.read(block_size), ''):
-        f_hash.update(chunk)
-    return f_hash
+    while True:
+        buf = f.read(block_size)
+        if not buf:
+            break
+        f_hash.update( buf )
 
+    return f_hash
 
 
 def split_list(l, prop):
@@ -681,7 +684,7 @@ def get_git_head():
     if err:
         return None, None
 
-    outs = out.split()
+    outs = [o.decode('utf-8') for o in out.split()]
     commit = outs[0]
     msg = ' ' .join(outs[1:])
     return commit, msg
